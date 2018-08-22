@@ -99,7 +99,7 @@ public class TileMap : MonoBehaviour {
 	// Update is called once per frame
 	void BuildMesh () {
 		// Generate Mesh Data
-		int numVertices = (mapTileWidth) * (mapTileHeight) * 4;
+		int numVertices = (mapTileWidth) * (mapTileHeight) * 6;
 		Vector3[] vertices = new Vector3[numVertices];
 
 		int numTriangles = mapTileWidth * mapTileHeight * 2;
@@ -114,51 +114,58 @@ public class TileMap : MonoBehaviour {
 		    for (int tileIndex_x = 0; tileIndex_x < mapTileWidth; tileIndex_x++ ){
 				float baseX = planeOffsetX + tileIndex_x * tileWidth;
 				float baseZ = planeOffsetZ + tileIndex_z * tileHeight;
+                
+				int baseIndex = (tileIndex_z * mapTileHeight + tileIndex_x) * 6;
 
-				int baseIndex = (tileIndex_z * mapTileHeight + tileIndex_x) * 4;
+                float[] heights = {GetHeight(tileIndex_z, tileIndex_x, 0),
+                    GetHeight(tileIndex_z, tileIndex_x, 1),
+                    GetHeight(tileIndex_z, tileIndex_x, 2),
+                    GetHeight(tileIndex_z, tileIndex_x, 3)};
 
-				float [] heights = {GetHeight(tileIndex_z, tileIndex_x, 0),
-					GetHeight(tileIndex_z, tileIndex_x, 1),
-					GetHeight(tileIndex_z, tileIndex_x, 2),
-					GetHeight(tileIndex_z, tileIndex_x, 3)};
 				
-                // Set vertices                
-				vertices[baseIndex] = new Vector3(baseX,heights[0] , baseZ);
+                // Set vertices  
+				vertices[baseIndex] = new Vector3(baseX, heights[0] , baseZ);
 				vertices[baseIndex + 1] = new Vector3(baseX, heights[1], baseZ + tileHeight);
 				vertices[baseIndex + 2] = new Vector3(baseX + tileWidth, heights[2] , baseZ + tileHeight);
-				vertices[baseIndex + 3] = new Vector3(baseX + tileWidth, heights[3] , baseZ);
-				/*
-				// Set vertices
-                vertices[baseIndex] = new Vector3(baseX, 0, baseZ);
-                vertices[baseIndex + 1] = new Vector3(baseX, 0, baseZ + tileHeight);
-                vertices[baseIndex + 2] = new Vector3(baseX + tileWidth, 0, baseZ + tileHeight);
-                vertices[baseIndex + 3] = new Vector3(baseX + tileWidth, 0, baseZ);
-				*/
-                // Set normals
-				normals[baseIndex] = Vector3.up;
-				normals[baseIndex + 1] = Vector3.up;
-				normals[baseIndex + 2] = Vector3.up;
-				normals[baseIndex + 3] = Vector3.up;
-                
-				// Select random texture
-				int textureID = GetTextureID(heights);
-				List<Vector2> tmpUVs = uvTileRefs[textureID];
+				vertices[baseIndex + 3] = new Vector3(baseX, heights[0], baseZ);
+				vertices[baseIndex + 4] = new Vector3(baseX + tileWidth, heights[2], baseZ + tileHeight);
+				vertices[baseIndex + 5] = new Vector3(baseX + tileWidth, heights[3], baseZ);
+
+				// Set normals
+				Vector3 normal1 = Vector3.Cross(vertices[baseIndex] - vertices[baseIndex + 1], vertices[baseIndex] - vertices[baseIndex + 2]);
+				Vector3 normal2 = Vector3.Cross(vertices[baseIndex + 3] - vertices[baseIndex + 4], vertices[baseIndex + 3] - vertices[baseIndex + 5]);
+				normals[baseIndex] = normal1;
+				normals[baseIndex + 1] = normal1;
+				normals[baseIndex + 2] = normal1;
+				normals[baseIndex + 3] = normal2;
+				normals[baseIndex + 4] = normal2;
+				normals[baseIndex + 5] = normal2;
+
+
+				// Select Texture for both triangles
+				float[] heights1 = { heights[0], heights[1], heights[2] };
+                float[] heights2 = { heights[0], heights[2], heights[3] };
+				int textureID1 = GetTextureID(heights1);
+				int textureID2 = textureID1;
+				List<Vector2> UVs1 = uvTileRefs[textureID1];
+				List<Vector2> UVs2 = uvTileRefs[textureID2];
 
     			// Set uvs
-				uvs[baseIndex] = tmpUVs[0];
-				uvs[baseIndex + 1] = tmpUVs[1];
-				uvs[baseIndex + 2] = tmpUVs[2];
-				uvs[baseIndex + 3] = tmpUVs[3];
-
+				uvs[baseIndex] = UVs1[0];
+				uvs[baseIndex + 1] = UVs1[1];
+				uvs[baseIndex + 2] = UVs1[2];
+				uvs[baseIndex + 3] = UVs2[0];
+				uvs[baseIndex + 4] = UVs2[2];
+				uvs[baseIndex + 5] = UVs2[3];
 
 				// Set triangles
 				int triangleBaseIndex = (tileIndex_z * mapTileHeight + tileIndex_x) * 2 * 3;
 				triangles[triangleBaseIndex] = baseIndex;
 				triangles[triangleBaseIndex + 1] = baseIndex + 1;
 				triangles[triangleBaseIndex + 2] = baseIndex + 2;
-				triangles[triangleBaseIndex + 3] = baseIndex;
-				triangles[triangleBaseIndex + 4] = baseIndex + 2;
-				triangles[triangleBaseIndex + 5] = baseIndex + 3;    
+				triangles[triangleBaseIndex + 3] = baseIndex + 3;
+				triangles[triangleBaseIndex + 4] = baseIndex + 4;
+				triangles[triangleBaseIndex + 5] = baseIndex + 5;    
 
             }	
 		}
@@ -178,8 +185,9 @@ public class TileMap : MonoBehaviour {
 		MeshCollider meshCollider = GetComponent<MeshCollider>();
 		meshFilter.mesh = mesh;
 		meshRenderer.material.mainTexture = tileMapTexture;
+		meshRenderer.material.SetFloat("_Metallic", 0f);  
+		meshRenderer.material.SetFloat("_Glossiness", 0f);        
 
-        
 	}
 
 	int GetTextureID(float [] heights){
@@ -188,27 +196,27 @@ public class TileMap : MonoBehaviour {
 		if ((averageHeight - minHeight) < range * 0.1){
 			return 0;
 		}
-		if ((averageHeight - minHeight) < range * 0.2)
+		if ((averageHeight - minHeight) < range * 0.15)
         {
             return 1;
         }
-		if ((averageHeight - minHeight) < range * 0.3)
+		if ((averageHeight - minHeight) < range * 0.35)
         {
             return 2;
         }
-		if ((averageHeight - minHeight) < range * 0.5)
+		if ((averageHeight - minHeight) < range * 0.45)
         {
             return 3;
         }
-		if ((averageHeight - minHeight) < range * 0.7)
+		if ((averageHeight - minHeight) < range * 0.65)
         {
             return 4;
         }
-		if ((averageHeight - minHeight) < range * 0.8)
+		if ((averageHeight - minHeight) < range * 0.75)
         {
             return 5;
         }
-		if ((averageHeight - minHeight) < range * 0.8)
+		if ((averageHeight - minHeight) < range * 0.85)
         {
             return 6;
         }
