@@ -15,6 +15,8 @@ public class TileMap : MonoBehaviour {
     public int mapTileWidth; // x
 	public int mapTileHeight; // z
 
+	public GameObject treePrefab;
+
 	public float heightScale;
 
     // perlin noise
@@ -23,6 +25,8 @@ public class TileMap : MonoBehaviour {
 	private float noiseOffsetZ;
 
 	private float[,] heightMap;
+	private int[,] textureMap;
+
 
     private float planeOffsetX = 0f;
 	private float planeOffsetZ = 0f;
@@ -39,6 +43,7 @@ public class TileMap : MonoBehaviour {
 		BuildHeightMap();
 		BuildTexture();
 		BuildMesh();
+		GenerateTerrain();
 	}
 
 	void BuildHeightMap(){
@@ -95,10 +100,11 @@ public class TileMap : MonoBehaviour {
 		uvTileRefs = tileData.GetUVTileRefs();
 		//tileMapTexture = tileData.GetTileMapTexture();
 	}
+    
 
-	// Update is called once per frame
-	void BuildMesh () {
-		// Generate Mesh Data
+    void BuildMesh () {
+        // Initialize data storage
+		textureMap = new int[mapTileHeight, mapTileWidth];
 		int numVertices = (mapTileWidth) * (mapTileHeight) * 6;
 		Vector3[] vertices = new Vector3[numVertices];
 
@@ -108,6 +114,8 @@ public class TileMap : MonoBehaviour {
 		Vector3[] normals = new Vector3[numVertices];
 		Vector2[] uvs = new Vector2[numVertices];
 
+		// Generate Mesh Data
+        
 		// Run through all vertices
 		for (int tileIndex_z = 0; tileIndex_z < mapTileHeight; tileIndex_z++)
         {
@@ -150,6 +158,9 @@ public class TileMap : MonoBehaviour {
 				List<Vector2> UVs1 = uvTileRefs[textureID1];
 				List<Vector2> UVs2 = uvTileRefs[textureID2];
 
+				// Set tileID in tileMap
+				textureMap[tileIndex_z, tileIndex_x] = textureID1;
+
     			// Set uvs
 				uvs[baseIndex] = UVs1[0];
 				uvs[baseIndex + 1] = UVs1[1];
@@ -188,6 +199,34 @@ public class TileMap : MonoBehaviour {
 		meshRenderer.material.SetFloat("_Metallic", 0f);  
 		meshRenderer.material.SetFloat("_Glossiness", 0f);        
 
+	}
+
+	void GenerateTerrain(){
+		// Loop through all tiles
+		for (int tileIndex_z = 0; tileIndex_z < mapTileHeight; tileIndex_z++)
+		{
+			for (int tileIndex_x = 0; tileIndex_x < mapTileWidth; tileIndex_x++)
+			{
+				if (textureMap[tileIndex_z, tileIndex_x] != 4)
+					continue;
+                
+				int random = Random.Range(0, 10);
+				if (random < 9)
+					continue;
+                float tileCentreHeight = GetTileHeight(tileIndex_z, tileIndex_x);
+				Vector3 tileCentre = new Vector3((float)(tileIndex_x + 0.5) * tileWidth, tileCentreHeight, (float)(tileIndex_z + 0.5) * tileHeight);
+				Instantiate(treePrefab, tileCentre, treePrefab.transform.rotation);
+			}
+		}
+        
+	}
+    
+	float GetTileHeight(int tileIndex_z, int tileIndex_x){
+		float[] tileVertices = {heightMap[tileIndex_z, tileIndex_x],
+			heightMap[tileIndex_z + 1, tileIndex_x],
+			heightMap[tileIndex_z, tileIndex_x + 1],
+			heightMap[tileIndex_z + 1, tileIndex_x + 1]};
+		return ArraySum(tileVertices)/4;
 	}
 
 	int GetTextureID(float [] heights){
