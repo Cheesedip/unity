@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class Terrain : MonoBehaviour {
-	
+	private Utilities utilities;
+
 	private float[,] heightMap;
     private int[,] textureMap;
 
@@ -14,12 +15,15 @@ public class Terrain : MonoBehaviour {
     public GameObject treePrefab;
 
 	void Start(){
+		utilities = new Utilities();
 		textureMap = TileMap.instance.GetTextureMap();
 		heightMap = TileMap.instance.GetHeightMap();
 		mapTileHeight = TileMap.instance.GetMapTileHeight();
 		mapTileWidth = TileMap.instance.GetMapTileWidth();
 		tileWidth = TileMap.instance.GetTileWidth();
 		tileHeight = TileMap.instance.GetTileHeight();
+
+		GenerateTerrain();
 	}
 
 	void GenerateTerrain()
@@ -49,6 +53,6 @@ public class Terrain : MonoBehaviour {
             heightMap[tileIndex_z + 1, tileIndex_x],
             heightMap[tileIndex_z, tileIndex_x + 1],
             heightMap[tileIndex_z + 1, tileIndex_x + 1]};
-        return Utilities.instance.ArraySum(tileVertices) / 4;
+		return utilities.ArraySum(tileVertices) / 4;
     }
 }

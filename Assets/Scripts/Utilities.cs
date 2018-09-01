@@ -2,14 +2,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Utilities : MonoBehaviour
+public class Utilities
 {
-
-	public static Utilities instance;
-
-	void Awake()
-	{
-		instance = this;
+	public Utilities(){
+		
 	}
 
 	public float ArraySum(float[] array)

@@ -8,7 +8,7 @@ using UnityEngine;
 [RequireComponent(typeof(MeshCollider))]
 public class TileMap : MonoBehaviour
 {
-
+	private Utilities utilities;
 	public static TileMap instance;
 
 	private TileData tileData;
@@ -31,9 +31,10 @@ public class TileMap : MonoBehaviour
 	void Awake()
 	{
 		// Set static MainGameManager instance
+		utilities = new Utilities();
 		instance = this;
 		BuildHeightMap();
-		GenerateNormalMap();
+		GenerateSmoothedNormalMap();
 		BuildTexture();
 		BuildMesh();
 	}
@@ -70,16 +71,16 @@ public class TileMap : MonoBehaviour
 				}
 			}
 		}
-		Debug.Log("Max Height: " + maxHeight + ", Min Height: " + minHeight);
+		//Debug.Log("Max Height: " + maxHeight + ", Min Height: " + minHeight);
 	}
 
-	void GenerateNormalMap(){
+	void GenerateSmoothedNormalMap(){
 		normalMap = new Vector3[mapTileHeight + 1, mapTileWidth + 1];
 		for (int verticeIndex_z = 0; verticeIndex_z < mapTileHeight + 1; verticeIndex_z++)
         {
             for (int verticeIndex_x = 0; verticeIndex_x < mapTileWidth + 1; verticeIndex_x++)
             {
-				normalMap[verticeIndex_z, verticeIndex_x] = CalculateNormal(verticeIndex_z, verticeIndex_x);
+				normalMap[verticeIndex_z, verticeIndex_x] = CalculateSmoothedNormal(verticeIndex_z, verticeIndex_x);
             }
         }
 	}
@@ -131,12 +132,12 @@ public class TileMap : MonoBehaviour
 				vertices[baseIndex + 5] = new Vector3(baseX + tileWidth, heights[3], baseZ);
 
 				// Set normals
-				normals[baseIndex] = normal1;
-				normals[baseIndex + 1] = normal1;
-				normals[baseIndex + 2] = normal1;
-				normals[baseIndex + 3] = normal2;
-				normals[baseIndex + 4] = normal2;
-				normals[baseIndex + 5] = normal2;
+				normals[baseIndex] = normalMap[tileIndex_z, tileIndex_x];
+				normals[baseIndex + 1] = normalMap[tileIndex_z + 1, tileIndex_x];
+				normals[baseIndex + 2] = normalMap[tileIndex_z + 1, tileIndex_x + 1];
+				normals[baseIndex + 3] = normalMap[tileIndex_z, tileIndex_x];;
+				normals[baseIndex + 4] = normalMap[tileIndex_z + 1, tileIndex_x + 1];
+				normals[baseIndex + 5] = normalMap[tileIndex_z, tileIndex_x + 1];
 
 
 				// Select Texture for both triangles (Now implemented that texture is selected per tile, not per triangle)
@@ -189,11 +190,16 @@ public class TileMap : MonoBehaviour
 		meshRenderer.material.SetFloat("_Glossiness", 0f);
 	}
 
-	Vector3 CalculateNormal(int verticeIndex_z, int verticeIndex_x){
-        // Calculate the normals for specific vertice using heightmap
-		Vector3 normal1 = Vector3.Cross(vertices[baseIndex] - vertices[baseIndex + 1], vertices[baseIndex] - vertices[baseIndex + 2]);
-        Vector3 normal2 = Vector3.Cross(vertices[baseIndex + 3] - vertices[baseIndex + 4], vertices[baseIndex + 3] - vertices[baseIndex + 5]);
-	}
+	Vector3 CalculateSmoothedNormal(int verticeIndex_z, int verticeIndex_x){
+		// Calculate the normals vertice using heightmap
+		Vector3 left = new Vector3(Mathf.Max(verticeIndex_x - 1, 0), heightMap[verticeIndex_z, Mathf.Max(verticeIndex_x - 1, 0)], verticeIndex_z);
+		Vector3 right = new Vector3(Mathf.Min(verticeIndex_x + 1, mapTileWidth), heightMap[verticeIndex_z, Mathf.Min(verticeIndex_x + 1, mapTileWidth)], verticeIndex_z);
+		Vector3 up = new Vector3(verticeIndex_x, heightMap[Mathf.Min(verticeIndex_z + 1, mapTileHeight), verticeIndex_x] , Mathf.Min(verticeIndex_z + 1, mapTileHeight));
+        Vector3 down = new Vector3(verticeIndex_x, heightMap[Mathf.Max(verticeIndex_z - 1, 0), verticeIndex_x], Mathf.Max(verticeIndex_z - 1, 0));
+
+		Vector3 normal = Vector3.Cross(right - left, up - down);
+		return normal;
+  }
 
 	float GenerateHeight(int verticeIndex_z, int verticeIndex_x)
     {
@@ -201,7 +207,7 @@ public class TileMap : MonoBehaviour
         float perlin_x = (float)verticeIndex_x / (mapTileWidth + 1) * noiseScale + noiseOffsetX;
         float height = Mathf.PerlinNoise(perlin_z, perlin_x);
         height = height * heightScale;
-        Debug.Log("height: " + height);
+        //Debug.Log("height: " + height);
         return height;
     }
 
@@ -224,7 +230,8 @@ public class TileMap : MonoBehaviour
 
 
 	int GetTextureID(float [] heights){
-		float averageHeight = Utilities.instance.ArraySum(heights) / heights.Length;
+		
+		float averageHeight = utilities.ArraySum(heights) / heights.Length;
 		float range = maxHeight - minHeight;
 		if ((averageHeight - minHeight) < range * 0.1){
 			return 0;
